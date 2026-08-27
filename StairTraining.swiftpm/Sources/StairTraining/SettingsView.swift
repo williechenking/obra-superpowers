@@ -1,38 +1,53 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject var store: TrainingStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var token: String = LineNotifier().channelAccessToken
-    @State private var userId: String = LineNotifier().wifeUserId
-    @State private var testMessage: String = "這是一則測試訊息 🙂"
+    @State private var baseURL: String
+    @State private var roomId: String
     @State private var testResultText: String?
-    @State private var isSending = false
+    @State private var isTesting = false
+
+    init(store: TrainingStore) {
+        self.store = store
+        _baseURL = State(initialValue: store.sync.baseURL)
+        _roomId = State(initialValue: store.sync.roomId)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("LINE 官方帳號設定") {
-                    SecureField("Channel Access Token", text: $token)
+                Section("我是誰") {
+                    Picker("身分", selection: $store.me) {
+                        ForEach(Person.allCases, id: \.self) { person in
+                            Text(person.displayName).tag(person)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("Firebase 同步設定") {
+                    TextField("Database URL,例如 https://xxx-default-rtdb.firebaseio.com", text: $baseURL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    TextField("老婆的 LINE userId", text: $userId)
+                        .keyboardType(.URL)
+                    TextField("房間代碼(兩人要輸入一樣的)", text: $roomId)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
 
                 Section("測試") {
-                    TextField("測試訊息內容", text: $testMessage)
                     Button {
-                        sendTest()
+                        testConnection()
                     } label: {
-                        if isSending {
+                        if isTesting {
                             ProgressView()
                         } else {
-                            Text("發送測試訊息")
+                            Text("測試連線並上傳一次我的進度")
                         }
                     }
-                    .disabled(isSending || token.isEmpty || userId.isEmpty)
+                    .disabled(isTesting || baseURL.isEmpty || roomId.isEmpty)
 
                     if let testResultText {
                         Text(testResultText)
@@ -42,7 +57,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Token 與 userId 只會存在這台裝置的 Keychain 裡,不會上傳到任何地方,只有按「完成一次」或「發送測試訊息」時才會直接呼叫 LINE 官方 API。")
+                    Text("兩支手機都要填『一樣的』Database URL 和房間代碼,但各自選自己的身分(老公 / 老婆)。設定方法請見專案裡的 README。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -60,23 +75,22 @@ struct SettingsView: View {
     }
 
     private func save() {
-        let notifier = LineNotifier()
-        notifier.channelAccessToken = token
-        notifier.wifeUserId = userId
+        store.sync.baseURL = baseURL
+        store.sync.roomId = roomId
     }
 
-    private func sendTest() {
+    private func testConnection() {
         save()
-        isSending = true
+        isTesting = true
         testResultText = nil
         Task {
-            let result = await LineNotifier().sendMessage(testMessage)
-            isSending = false
-            switch result {
-            case .success:
-                testResultText = "✅ 發送成功"
-            case .failure(let error):
-                testResultText = "❌ \(error.localizedDescription)"
+            await store.pushMyProgress()
+            await store.refreshPartner()
+            isTesting = false
+            if let error = store.myPushError {
+                testResultText = "❌ 上傳失敗:\(error)"
+            } else {
+                testResultText = "✅ 已成功上傳我的進度到 Firebase"
             }
         }
     }

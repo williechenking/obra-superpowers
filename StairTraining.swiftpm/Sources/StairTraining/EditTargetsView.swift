@@ -37,7 +37,7 @@ struct EditTargetsView: View {
                 }
 
                 Section {
-                    Text("這裡是手動校正今天的數字用的(例如第一次設定 App 時同步目前進度)，不會發送 LINE 訊息。明天開啟 App 時,爬樓梯目標會自動 +1。")
+                    Text("這裡是手動校正今天的數字用的(例如第一次設定 App 時同步目前進度)，儲存後會立刻上傳到 Firebase。明天開啟 App 時,爬樓梯目標會自動 +1。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

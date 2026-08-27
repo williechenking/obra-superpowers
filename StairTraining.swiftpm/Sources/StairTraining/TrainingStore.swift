@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 struct DayRecord: Codable {
     var targetReps: Int
@@ -11,13 +12,26 @@ struct DayRecord: Codable {
 final class TrainingStore: ObservableObject {
     @Published private(set) var today: DayRecord
     @Published private(set) var dayNumber: Int
-    @Published private(set) var recentLogs: [String] = []
+
+    @Published var me: Person {
+        didSet {
+            UserDefaults.standard.set(me.rawValue, forKey: personKey)
+            Task { await refreshPartner() }
+        }
+    }
+
+    @Published private(set) var partnerProgress: RemoteProgress?
+    @Published private(set) var partnerLastUpdated: Date?
+    @Published private(set) var partnerError: String?
+    @Published private(set) var isSyncing = false
+    @Published private(set) var myPushError: String?
 
     private var history: [String: DayRecord]
     private let historyKey = "stairTrainingHistory"
     private let dayNumberKey = "stairTrainingDayNumber"
+    private let personKey = "stairTrainingPerson"
 
-    let lineNotifier = LineNotifier()
+    let sync = FirebaseSync()
 
     init() {
         let defaults = UserDefaults.standard
@@ -27,6 +41,12 @@ final class TrainingStore: ObservableObject {
             history = decoded
         } else {
             history = [:]
+        }
+
+        if let rawPerson = defaults.string(forKey: personKey), let person = Person(rawValue: rawPerson) {
+            me = person
+        } else {
+            me = .husband
         }
 
         var storedDayNumber = defaults.integer(forKey: dayNumberKey)
@@ -81,67 +101,71 @@ final class TrainingStore: ObservableObject {
         )
         UserDefaults.standard.set(self.dayNumber, forKey: dayNumberKey)
         persist()
+        Task { await pushMyProgress() }
     }
 
     func incrementStair() {
         today.completedReps += 1
         persist()
-        Task { await sendStairUpdate() }
+        Task { await pushMyProgress() }
     }
 
     func decrementStair() {
         guard today.completedReps > 0 else { return }
         today.completedReps -= 1
         persist()
+        Task { await pushMyProgress() }
     }
 
     func incrementCindy() {
         today.completedCindySets += 1
         persist()
-        Task { await sendCindyUpdate() }
+        Task { await pushMyProgress() }
     }
 
     func decrementCindy() {
         guard today.completedCindySets > 0 else { return }
         today.completedCindySets -= 1
         persist()
+        Task { await pushMyProgress() }
     }
 
-    private func sendStairUpdate() async {
-        let done = today.completedReps
-        let target = today.targetReps
-        let finishedAll = target > 0 && done >= target
-        let text = finishedAll
-            ? "🏆 第\(dayNumber)天爬樓梯訓練全部完成！共\(done)趟(每趟爬13層樓梯再搭電梯下樓)"
-            : "🏃 第\(dayNumber)天爬樓梯進度:已完成第 \(done)/\(target) 趟"
-        await send(text)
-    }
+    func pushMyProgress() async {
+        guard sync.isConfigured else { return }
+        isSyncing = true
+        defer { isSyncing = false }
 
-    private func sendCindyUpdate() async {
-        let done = today.completedCindySets
-        let target = today.targetCindySets
-        let finishedAll = target > 0 && done >= target
-        let text = finishedAll
-            ? "🏆 第\(dayNumber)天 Cindy 訓練全部完成！共\(done)組"
-            : "💪 第\(dayNumber)天 Cindy 訓練進度:已完成第 \(done)/\(target) 組"
-        await send(text)
-    }
+        let remote = RemoteProgress(
+            dayNumber: dayNumber,
+            targetReps: today.targetReps,
+            completedReps: today.completedReps,
+            targetCindySets: today.targetCindySets,
+            completedCindySets: today.completedCindySets,
+            updatedAt: Date().timeIntervalSince1970
+        )
 
-    func sendCustomMessage(_ text: String) async {
-        await send(text)
-    }
-
-    private func send(_ text: String) async {
-        let result = await lineNotifier.sendMessage(text)
-        let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+        let result = await sync.push(remote, for: me)
         switch result {
         case .success:
-            recentLogs.insert("✅ [\(time)] \(text)", at: 0)
+            myPushError = nil
         case .failure(let error):
-            recentLogs.insert("❌ [\(time)] 發送失敗:\(error.localizedDescription) — \(text)", at: 0)
+            myPushError = error.localizedDescription
         }
-        if recentLogs.count > 20 {
-            recentLogs.removeLast(recentLogs.count - 20)
+    }
+
+    func refreshPartner() async {
+        guard sync.isConfigured else { return }
+        isSyncing = true
+        defer { isSyncing = false }
+
+        let result = await sync.fetch(for: me.partner)
+        switch result {
+        case .success(let progress):
+            partnerProgress = progress
+            partnerLastUpdated = Date()
+            partnerError = nil
+        case .failure(let error):
+            partnerError = error.localizedDescription
         }
     }
 }
