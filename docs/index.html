@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="爬樓梯訓練">
+<link rel="manifest" href="manifest.webmanifest">
+<title>爬樓梯訓練</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --text: #1c1c1e;
+    --sub: #6b6b70;
+    --orange: #ff8a3d;
+    --blue: #3d8bff;
+    --danger: #ff3b30;
+    --border: rgba(0,0,0,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0b0f;
+      --card: #1c1c1e;
+      --text: #f2f2f7;
+      --sub: #9a9aa0;
+      --border: rgba(255,255,255,0.1);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 40px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: max(16px, env(safe-area-inset-top)) 16px 8px;
+  }
+  header h1 { font-size: 20px; margin: 0; }
+  header .icon-btn {
+    font-size: 20px;
+    background: none;
+    border: none;
+    padding: 6px 10px;
+    color: var(--text);
+  }
+  main { padding: 0 16px; max-width: 480px; margin: 0 auto; }
+  .date-line { color: var(--sub); font-size: 13px; margin-bottom: 4px; }
+  .warning { color: var(--orange); font-size: 13px; margin-bottom: 12px; }
+  section.card-group {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 16px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  section.card-group > h2 {
+    font-size: 16px;
+    margin: 0 0 12px;
+  }
+  .progress-card {
+    text-align: center;
+    padding: 16px;
+    border-radius: 16px;
+    margin-bottom: 14px;
+    background: rgba(127,127,127,0.06);
+  }
+  .progress-card:last-of-type { margin-bottom: 0; }
+  .progress-card h3 { margin: 0 0 2px; font-size: 18px; }
+  .progress-card .subtitle { margin: 0 0 8px; font-size: 12px; color: var(--sub); }
+  .progress-card .big {
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-card.orange .big { color: var(--orange); }
+  .progress-card.blue .big { color: var(--blue); }
+  .bar {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(127,127,127,0.2);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .bar .fill { height: 100%; width: 0%; transition: width .2s ease; }
+  .progress-card.orange .fill { background: var(--orange); }
+  .progress-card.blue .fill { background: var(--blue); }
+  .btn-row { display: flex; gap: 12px; align-items: stretch; }
+  button { font: inherit; cursor: pointer; }
+  .btn-row button {
+    border-radius: 14px;
+    border: none;
+    padding: 14px;
+  }
+  .minus-btn {
+    width: 56px;
+    flex: 0 0 auto;
+    font-size: 22px;
+    background: rgba(127,127,127,0.15);
+    color: var(--text);
+  }
+  .minus-btn:disabled { opacity: 0.35; }
+  .primary-btn {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .progress-card.orange .primary-btn { background: var(--orange); }
+  .progress-card.blue .primary-btn { background: var(--blue); }
+  .error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+  .partner-row { margin-bottom: 12px; }
+  .partner-row .label-line { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px; }
+  .partner-row .label-line b { font-weight: 600; }
+  .muted { color: var(--sub); font-size: 13px; }
+
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex; align-items: flex-end;
+    z-index: 10;
+  }
+  .overlay[hidden] { display: none; }
+  .sheet {
+    background: var(--bg);
+    width: 100%;
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+  }
+  .sheet h2 { margin-top: 0; }
+  .sheet label {
+    display: block;
+    font-size: 13px;
+    color: var(--sub);
+    margin: 16px 0 6px;
+  }
+  .sheet input[type=text], .sheet input[type=url] {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 15px;
+  }
+  .segmented {
+    display: flex;
+    background: rgba(127,127,127,0.15);
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .segmented button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .segmented button.active {
+    background: var(--card);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .stepper-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+  }
+  .stepper-row span { font-size: 15px; }
+  .stepper-controls { display: flex; gap: 8px; }
+  .stepper-controls button {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(127,127,127,0.2);
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+  }
+  .sheet .btn-row { margin-top: 24px; gap: 12px; }
+  .sheet .secondary-btn {
+    flex: 1;
+    background: rgba(127,127,127,0.15);
+    color: var(--text);
+    border-radius: 14px;
+    padding: 14px;
+    font-weight: 600;
+  }
+  .sheet .primary-btn { border-radius: 14px; }
+  .test-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    background: rgba(127,127,127,0.15);
+    color: var(--text);
+    font-weight: 600;
+    margin-top: 8px;
+  }
+  #testResult { font-size: 13px; margin-top: 8px; color: var(--sub); }
+  .footnote { font-size: 12px; color: var(--sub); margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="icon-btn" id="editBtn" aria-label="編輯今日進度">✏️</button>
+  <h1 id="dayTitle">第 - 天訓練</h1>
+  <button class="icon-btn" id="settingsBtn" aria-label="設定">⚙️</button>
+</header>
+
+<main>
+  <div class="date-line" id="dateLine"></div>
+  <div class="warning" id="configWarning" hidden>尚未設定 Firebase 同步,請先按右上角⚙️設定</div>
+
+  <section class="card-group">
+    <h2>我的進度(<span id="meLabel">-</span>)</h2>
+
+    <div class="progress-card orange">
+      <h3>爬樓梯</h3>
+      <p class="subtitle">每趟:爬 13 層樓梯 + 搭電梯下樓</p>
+      <div class="big" id="stairCount">0 / 0</div>
+      <div class="bar"><div class="fill" id="stairFill"></div></div>
+      <div class="btn-row">
+        <button class="minus-btn" id="stairMinus">－</button>
+        <button class="primary-btn" id="stairPlus">完成一次</button>
+      </div>
+    </div>
+
+    <div class="progress-card blue">
+      <h3>Cindy</h3>
+      <p class="subtitle">訓練組數</p>
+      <div class="big" id="cindyCount">0 / 0</div>
+      <div class="bar"><div class="fill" id="cindyFill"></div></div>
+      <div class="btn-row">
+        <button class="minus-btn" id="cindyMinus">－</button>
+        <button class="primary-btn" id="cindyPlus">完成一次</button>
+      </div>
+    </div>
+
+    <p class="error" id="myPushError" hidden></p>
+  </section>
+
+  <section class="card-group">
+    <h2 id="partnerLabel">對方的進度</h2>
+    <div id="partnerContent" class="muted">尚未取得資料</div>
+    <p class="error" id="partnerError" hidden></p>
+  </section>
+</main>
+
+<div class="overlay" id="settingsOverlay" hidden>
+  <div class="sheet">
+    <h2>設定</h2>
+
+    <label>我是誰</label>
+    <div class="segmented">
+      <button data-person="husband" id="personHusbandBtn">老公</button>
+      <button data-person="wife" id="personWifeBtn">老婆</button>
+    </div>
+
+    <label>Database URL</label>
+    <input type="url" id="baseURLInput" placeholder="https://xxx-default-rtdb.firebaseio.com" autocapitalize="off" autocorrect="off">
+
+    <label>房間代碼(兩人要輸入一樣的)</label>
+    <input type="text" id="roomIdInput" placeholder="例如 willie-jane-2026" autocapitalize="off" autocorrect="off">
+
+    <button class="test-btn" id="testConnBtn">測試連線並上傳一次我的進度</button>
+    <p id="testResult"></p>
+
+    <p class="footnote">兩支手機都要填『一樣的』Database URL 和房間代碼,但各自選自己的身分(老公 / 老婆)。設定方法請見專案裡的 README。</p>
+
+    <div class="btn-row">
+      <button class="secondary-btn" id="settingsCancel">取消</button>
+      <button class="primary-btn" id="settingsSave" style="background:var(--orange)">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="editOverlay" hidden>
+  <div class="sheet">
+    <h2>編輯今日進度</h2>
+
+    <label>第幾天</label>
+    <div class="stepper-row">
+      <span id="dayNumberLabel">第 1 天</span>
+      <div class="stepper-controls">
+        <button data-field="dayNumber" data-delta="-1">－</button>
+        <button data-field="dayNumber" data-delta="1">＋</button>
+      </div>
+    </div>
+
+    <label>爬樓梯 · 目標</label>
+    <div class="stepper-row">
+      <span id="targetRepsLabel">0 趟</span>
+      <div class="stepper-controls">
+        <button data-field="targetReps" data-delta="-1">－</button>
+        <button data-field="targetReps" data-delta="1">＋</button>
+      </div>
+    </div>
+
+    <label>爬樓梯 · 已完成</label>
+    <div class="stepper-row">
+      <span id="completedRepsLabel">0 趟</span>
+      <div class="stepper-controls">
+        <button data-field="completedReps" data-delta="-1">－</button>
+        <button data-field="completedReps" data-delta="1">＋</button>
+      </div>
+    </div>
+
+    <label>Cindy · 目標</label>
+    <div class="stepper-row">
+      <span id="targetCindyLabel">0 組</span>
+      <div class="stepper-controls">
+        <button data-field="targetCindySets" data-delta="-1">－</button>
+        <button data-field="targetCindySets" data-delta="1">＋</button>
+      </div>
+    </div>
+
+    <label>Cindy · 已完成</label>
+    <div class="stepper-row">
+      <span id="completedCindyLabel">0 組</span>
+      <div class="stepper-controls">
+        <button data-field="completedCindySets" data-delta="-1">－</button>
+        <button data-field="completedCindySets" data-delta="1">＋</button>
+      </div>
+    </div>
+
+    <p class="footnote">這裡是手動校正今天的數字用的(例如第一次設定時同步目前進度),儲存後會立刻上傳到 Firebase。明天打開時,爬樓梯目標會自動 +1。</p>
+
+    <div class="btn-row">
+      <button class="secondary-btn" id="editCancel">取消</button>
+      <button class="primary-btn" id="editSave" style="background:var(--orange)">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

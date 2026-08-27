@@ -1,0 +1,9 @@
+{
+  "name": "爬樓梯訓練",
+  "short_name": "爬樓梯訓練",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0b0f",
+  "theme_color": "#ff8a3d"
+}
